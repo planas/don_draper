@@ -1,5 +1,5 @@
 module DonDraper
-  def pgt_don_draper(table, spin = 0, length = 10, prefix_length = 0, opts = {})
+  def pgt_draperize(table, spin = 0, length = 10, prefix_length = 0, opts = {})
     trigger_name  = opts[:trigger_name]  || "pgt_dd_#{table}"
     function_name = opts[:function_name] || "pgt_dd_#{table}"
     sequence_name = opts[:sequence_name] || table.to_s.foreign_key + "_seq"
@@ -19,7 +19,7 @@ module DonDraper
       draperized_id #{column_type};
       random_prefix int;
     BEGIN
-      SELECT don_draper(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length}) INTO draperized_id;
+      SELECT draperize(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length}) INTO draperized_id;
       #{"SELECT floor(#{random_min} + (#{random_max} - #{random_min} + 1) * random()) INTO random_prefix;" if prefix_length > 0}
       #{prefix_length > 0 ? "NEW.\"id\" = (random_prefix::text || draperized_id)::#{column_type}" : "NEW.\"id\" = draperized_id::#{column_type}"};
       RETURN NEW;
@@ -30,7 +30,7 @@ module DonDraper
   end
 
   def create_don_draper_functions
-    create_don_draper_function
+    create_draperize_function
     create_rotate_array_function
     create_zero_padding_function
     create_swapper_map_function
@@ -45,8 +45,8 @@ module DonDraper
     create_trigger(table, trigger_name, function_name, :events => events, :each_row => true, :after => opts[:after])
   end
 
-  def create_don_draper_function
-    don_draper = <<-SQL
+  def create_draperize_function
+    draperize = <<-SQL
     var swap = plv8.find_function("_dd__swap");
     var scatter = plv8.find_function("_dd__scatter");
     var zero_padding = plv8.find_function("_dd__zero_padding");
@@ -54,7 +54,7 @@ module DonDraper
     return scatter(swap(zero_padding(input, length).split(''), spin), spin, length).join('');
     SQL
 
-    create_function "don_draper", don_draper,
+    create_function "draperize", draperize,
       :language => :plv8,
       :args     => [[:text, :input], ['int DEFAULT 0', :spin], ['int DEFAULT 10', :length]],
       :returns  => :text,

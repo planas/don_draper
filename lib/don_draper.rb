@@ -36,9 +36,6 @@ module DonDraper
     var scatter = plv8.find_function("_dd__scatter");
     var zero_padding = plv8.find_function("_dd__zero_padding");
 
-    if(typeof(input) != "string")
-      input = input.toString();
-
     return scatter(swap(zero_padding(input, length).split(''), spin), spin, length).join('');
     SQL
 

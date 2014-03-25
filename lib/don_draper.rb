@@ -1,0 +1,155 @@
+module DonDraper
+  def pgt_don_draper(table, spin = 0, length = 10, opts = {})
+    trigger_name  = opts[:trigger_name]  || "pgt_dd_#{table}"
+    function_name = opts[:function_name] || "pgt_dd_#{table}"
+    sequence_name = opts[:sequence_name] || table.to_s.foreign_key + "_seq"
+
+    sql = <<-SQL
+    BEGIN
+      SELECT don_draper(nextval('#{sequence_name}')::text, #{spin}, #{length}) INTO NEW.id;
+      RETURN NEW;
+    END;
+    SQL
+
+    pgt_trigger(table, trigger_name, function_name, [:insert], sql)
+  end
+
+  def create_don_draper_functions
+    create_don_draper_function
+    create_rotate_array_function
+    create_zero_padding_function
+    create_swapper_map_function
+    create_swap_function
+    create_scatter_function
+  end
+
+  private
+
+  def pgt_trigger(table, trigger_name, function_name, events, definition, opts = {})
+    create_function(function_name, definition, :language => :plpgsql, :returns => :trigger, :replace => true)
+    create_trigger(table, trigger_name, function_name, :events => events, :each_row => true, :after => opts[:after])
+  end
+
+  def create_don_draper_function
+    don_draper = <<-SQL
+    var swap = plv8.find_function("_dd__swap");
+    var scatter = plv8.find_function("_dd__scatter");
+    var zero_padding = plv8.find_function("_dd__zero_padding");
+
+    if(typeof(input) != "string")
+      input = input.toString();
+
+    return scatter(swap(zero_padding(input, length).split(''), spin), spin, length).join('');
+    SQL
+
+    create_function "don_draper", don_draper,
+      :language => :plv8,
+      :args     => [[:text, :input], ['int DEFAULT 0', :spin], ['int DEFAULT 10', :length]],
+      :returns  => :text,
+      :replace  => true,
+      :behavior => :immutable
+  end
+
+  def create_rotate_array_function
+    sql = <<-SQL
+    for(var l = a.length, p = -Math.abs(p), p = (Math.abs(p) >= l && (p %= l), p < 0 && (p += l), p), i, x; p; p = (Math.ceil(l / p) - 1) * p - l + (l = p))
+      for(i = l; i > p; x = a[--i], a[i] = a[i - p], a[i - p] = x);
+    return a;
+    SQL
+
+    create_function "_dd__rotate_array", sql,
+      :language => :plv8,
+      :args     => [[:anyarray, :a, :in], [:int, :p]],
+      :returns  => :anyarray,
+      :replace  => true,
+      :behavior => :immutable
+  end
+
+  def create_zero_padding_function
+    sql = <<-SQL
+    if(input.length < width)
+    {
+      for(var i = 0, buff = ""; i < width - input.length; i++)
+        buff += "0";
+
+      return buff + input;
+    }
+    else
+      return input;
+    SQL
+
+    create_function "_dd__zero_padding", sql,
+      :language => :plv8,
+      :args     => [[:text, :input], [:int, :width]],
+      :returns  => :text,
+      :replace  => true,
+      :behavior => :immutable
+  end
+
+  def create_swapper_map_function
+    sql = <<-SQL
+    var array = [0,1,2,3,4,5,6,7,8,9], output = [];
+    var rotate_array = plv8.find_function("_dd__rotate_array");
+
+    for(var i = 0; i < 10; i++)
+    {
+      plv8.elog(NOTICE, 'notice', array.join(','));
+      output[i] = rotate_array(array, index + i ^ spin).pop();
+    }
+
+    return output;
+    SQL
+
+    create_function "_dd__swapper_map", sql,
+      :language => :plv8,
+      :args     => [[:int, :index], [:int, :spin]],
+      :returns  => :text,
+      :replace  => true,
+      :behavior => :immutable
+  end
+
+  def create_swap_function
+    sql = <<-SQL
+    var output = [];
+    var swapper_map = plv8.find_function("_dd__swapper_map");
+
+    for(var i = 0; i < input.length; i++)
+      output[i] = swapper_map(i, spin)[parseInt(input[i])];
+
+    return output;
+    SQL
+
+    create_function "_dd__swap", sql,
+      :language => :plv8,
+      :args     => [['text[]', :input], [:int, :spin]],
+      :returns  => 'text[]',
+      :replace  => true,
+      :behavior => :immutable
+  end
+
+  def create_scatter_function
+    sql = <<-SQL
+    var sum = 0, output = [];
+    var rotate_array = plv8.find_function("_dd__rotate_array");
+
+    for(var i = 0; i < input.length; i++)
+      sum += parseInt(input[i]);
+
+    for(var k = 0; k < length; k++)
+      output[k] = rotate_array(input, spin ^ sum).pop();
+
+    return output;
+    SQL
+
+    create_function "_dd__scatter", sql,
+      :language => :plv8,
+      :args     => [['text[]', :input], [:int, :spin], [:int, :length]],
+      :returns  => 'text[]',
+      :replace  => true,
+      :behavior => :immutable
+  end
+end
+
+if defined? Sequel
+  Sequel::Postgres::DatabaseMethods.include DonDraper
+end

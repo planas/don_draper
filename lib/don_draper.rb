@@ -11,7 +11,7 @@ module DonDraper
 
     if prefix_length > 0
       random_min = ('1' + '0' * (prefix_length - 1)).to_i
-      random_max = ('1' + '0' * (prefix_length)).to_i
+      random_max = ('1' + '0' * prefix_length).to_i
     end
 
     sql = <<-SQL

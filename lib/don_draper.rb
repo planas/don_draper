@@ -19,7 +19,7 @@ module DonDraper
     sql = <<-SQL
     DECLARE
       draperized_id #{column_type};
-      random_prefix int;
+      #{'random_prefix int;' if prefix_length > 0}
     BEGIN
       SELECT draperize(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length}) INTO draperized_id;
       #{"SELECT floor(#{random_min} + (#{random_max} - #{random_min} + 1) * random()) INTO random_prefix;" if prefix_length > 0}

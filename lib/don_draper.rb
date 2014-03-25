@@ -1,12 +1,27 @@
 module DonDraper
-  def pgt_don_draper(table, spin = 0, length = 10, opts = {})
+  def pgt_don_draper(table, spin = 0, length = 10, prefix_length = 0, opts = {})
     trigger_name  = opts[:trigger_name]  || "pgt_dd_#{table}"
     function_name = opts[:function_name] || "pgt_dd_#{table}"
     sequence_name = opts[:sequence_name] || table.to_s.foreign_key + "_seq"
 
+    # Max value for int is 2147483647, we can't guess
+    # if the result will be under that threshold, so
+    # just use bigint when length is >= 10
+    column_type = length >= 10 ? 'bigint' : 'int'
+
+    if prefix_length > 0
+      random_min = ('1' + '0' * (prefix_length - 1)).to_i
+      random_max = ('1' + '0' * (prefix_length)).to_i
+    end
+
     sql = <<-SQL
+    DECLARE
+      draperized_id #{column_type};
+      random_prefix int;
     BEGIN
-      SELECT don_draper(nextval('#{sequence_name}')::text, #{spin}, #{length}) INTO NEW.id;
+      SELECT don_draper(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length}) INTO draperized_id;
+      #{"SELECT floor(#{random_min} + (#{random_max} - #{random_min} + 1) * random()) INTO random_prefix;" if prefix_length > 0}
+      #{prefix_length > 0 ? "NEW.\"id\" = (random_prefix::text || draperized_id)::#{column_type}" : "NEW.\"id\" = draperized_id::#{column_type}"};
       RETURN NEW;
     END;
     SQL

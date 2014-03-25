@@ -92,10 +92,7 @@ module DonDraper
     var rotate_array = plv8.find_function("_dd__rotate_array");
 
     for(var i = 0; i < 10; i++)
-    {
-      plv8.elog(NOTICE, 'notice', array.join(','));
       output[i] = rotate_array(array, index + i ^ spin).pop();
-    }
 
     return output;
     SQL

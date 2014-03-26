@@ -16,14 +16,16 @@ module DonDraper
       random_max = ('1' + '0' * prefix_length).to_i
     end
 
-    sql = <<-SQL
+    sql = <<-SQL.gsub(/\n\s+\n/, "\n")
+
     DECLARE
       draperized_id #{column_type};
       #{'random_prefix int;' if prefix_length > 0}
     BEGIN
-      SELECT draperize(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length}) INTO draperized_id;
-      #{"SELECT floor(#{random_min} + (#{random_max} - #{random_min} + 1) * random()) INTO random_prefix;" if prefix_length > 0}
-      #{prefix_length > 0 ? "NEW.#{column_name} = (random_prefix::text || draperized_id)::#{column_type}" : "NEW.#{column_name} = draperized_id::#{column_type}"};
+      draperized_id := draperize(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length});
+      #{"random_prefix := floor(#{random_min} + (#{random_max} - #{random_min} + 1) * random());" if prefix_length > 0}
+
+      NEW.#{column_name} := #{prefix_length > 0 ? "(random_prefix::text || draperized_id)::#{column_type}" : "draperized_id::#{column_type}"};
       RETURN NEW;
     END;
     SQL

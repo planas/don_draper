@@ -1,5 +1,5 @@
 module DonDraper
-  def pgt_draperize(table, spin = 0, length = 10, prefix_length = 0, opts = {})
+  def pgt_draperize(table, spin = 0, length = 10, prefix_length = 2, opts = {})
     trigger_name  = opts[:trigger_name]  || "pgt_dd_#{table}"
     function_name = opts[:function_name] || "pgt_dd_#{table}"
     sequence_name = opts[:sequence_name] || table.to_s.foreign_key + "_seq"

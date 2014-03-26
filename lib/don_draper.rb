@@ -51,6 +51,7 @@ module DonDraper
 
   def create_draperize_function
     draperize = <<-SQL
+
     var swap = plv8.find_function("_dd__swap");
     var scatter = plv8.find_function("_dd__scatter");
     var zero_padding = plv8.find_function("_dd__zero_padding");
@@ -68,6 +69,7 @@ module DonDraper
 
   def create_rotate_array_function
     sql = <<-SQL
+
     for(var l = a.length, p = -Math.abs(p), p = (Math.abs(p) >= l && (p %= l), p < 0 && (p += l), p), i, x; p; p = (Math.ceil(l / p) - 1) * p - l + (l = p))
       for(i = l; i > p; x = a[--i], a[i] = a[i - p], a[i - p] = x);
     return a;
@@ -83,6 +85,7 @@ module DonDraper
 
   def create_zero_padding_function
     sql = <<-SQL
+
     if(input.length < width)
     {
       for(var i = 0, buff = ""; i < width - input.length; i++)
@@ -104,6 +107,7 @@ module DonDraper
 
   def create_swapper_map_function
     sql = <<-SQL
+
     var array = [0,1,2,3,4,5,6,7,8,9], output = [];
     var rotate_array = plv8.find_function("_dd__rotate_array");
 
@@ -123,6 +127,7 @@ module DonDraper
 
   def create_swap_function
     sql = <<-SQL
+
     var output = [];
     var swapper_map = plv8.find_function("_dd__swapper_map");
 
@@ -142,6 +147,7 @@ module DonDraper
 
   def create_scatter_function
     sql = <<-SQL
+
     var sum = 0, output = [];
     var rotate_array = plv8.find_function("_dd__rotate_array");
 

@@ -22,7 +22,7 @@ module DonDraper
       draperized_id #{column_type};
       #{'random_prefix int;' if prefix_length > 0}
     BEGIN
-      draperized_id := draperize(nextval('#{sequence_name}')::text, #{spin}, #{length - prefix_length});
+      draperized_id := draperize(nextval('#{sequence_name}')::text, #{spin}, #{length});
       #{"random_prefix := floor(#{random_min} + (#{random_max} - #{random_min} + 1) * random());" if prefix_length > 0}
 
       NEW.#{column_name} := #{prefix_length > 0 ? "(random_prefix::text || draperized_id)::#{column_type}" : "draperized_id::#{column_type}"};

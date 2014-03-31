@@ -170,5 +170,5 @@ module DonDraper
 end
 
 if defined? Sequel
-  Sequel::Postgres::DatabaseMethods.include DonDraper
+  Sequel::Postgres::DatabaseMethods.send(:include, DonDraper)
 end

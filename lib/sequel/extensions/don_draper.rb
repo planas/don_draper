@@ -29,7 +29,7 @@ class DonDraper
     sql = <<-SQL.gsub(/\n\s+\n/, "\n")
 
     DECLARE
-      draperized_id #{column_type};
+      draperized_id text;
       #{'random_prefix int;' if prefix_length > 0}
     BEGIN
       draperized_id := draperize(nextval('#{sequence_name}')::text, #{spin}, #{length});

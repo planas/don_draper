@@ -50,11 +50,14 @@ class DonDraper
     end
 
     create_draperize_function
+    create_undraperize_function
     create_rotate_array_function
     create_zero_padding_function
     create_swapper_map_function
     create_swap_function
+    create_unswap_function
     create_scatter_function
+    create_unscatter_function
 
     @setup_done = true
   end
@@ -64,8 +67,8 @@ class DonDraper
   def create_draperize_function
     draperize = <<-SQL
 
-    var swap = plv8.find_function("_dd__swap");
-    var scatter = plv8.find_function("_dd__scatter");
+    var swap         = plv8.find_function("_dd__swap");
+    var scatter      = plv8.find_function("_dd__scatter");
     var zero_padding = plv8.find_function("_dd__zero_padding");
 
     return scatter(swap(zero_padding(input, length).split(''), spin), spin, length).join('');
@@ -79,10 +82,31 @@ class DonDraper
       :behavior => :immutable
   end
 
+
+  def create_undraperize_function
+    undraperize = <<-SQL
+
+    var unswap    = plv8.find_function("_dd__unswap");
+    var unscatter = plv8.find_function("_dd__unscatter");
+
+    return unswap(unscatter(input.split(''), spin), spin).join('');
+    SQL
+
+    db.create_function "undraperize", undraperize,
+      :language => :plv8,
+      :args     => [[:text, :input], ['int DEFAULT 0', :spin]],
+      :returns  => :text,
+      :replace  => true,
+      :behavior => :immutable
+  end
+
   def create_rotate_array_function
     sql = <<-SQL
 
-    for(var l = a.length, p = -Math.abs(p), p = (Math.abs(p) >= l && (p %= l), p < 0 && (p += l), p), i, x; p; p = (Math.ceil(l / p) - 1) * p - l + (l = p))
+    // Author: Jonas Raoni Soares Silva
+    // http://jsfromhell.com/array/rotate [rev. #2]
+    // Modified to behave as Ruby's rotate
+    for(var l = a.length, p = -p, p = (Math.abs(p) >= l && (p %= l), p < 0 && (p += l), p), i, x; p; p = (Math.ceil(l / p) - 1) * p - l + (l = p))
       for(i = l; i > p; x = a[--i], a[i] = a[i - p], a[i - p] = x);
     return a;
     SQL
@@ -157,6 +181,26 @@ class DonDraper
       :behavior => :immutable
   end
 
+  def create_unswap_function
+    sql = <<-SQL
+
+    var output = [];
+    var swapper_map = plv8.find_function("_dd__swapper_map");
+
+    for(var i = 0; i < input.length; i++)
+      output[i] = swapper_map(i, spin).lastIndexOf(parseInt(input[i]));
+
+    return output;
+    SQL
+
+    db.create_function "_dd__unswap", sql,
+      :language => :plv8,
+      :args     => [['text[]', :input], [:int, :spin]],
+      :returns  => 'text[]',
+      :replace  => true,
+      :behavior => :immutable
+  end
+
   def create_scatter_function
     sql = <<-SQL
 
@@ -179,14 +223,38 @@ class DonDraper
       :replace  => true,
       :behavior => :immutable
   end
+
+  def create_unscatter_function
+    sql = <<-SQL
+
+    var length = input.length, sum = 0, output = [];
+    var rotate_array = plv8.find_function("_dd__rotate_array");
+
+    for(var i = 0; i < length; i++)
+      sum += parseInt(input[i]);
+
+    for(var k = 0; k < length; k++)
+    {
+      output.push(input.pop());
+      output = rotate_array(output, (spin ^ sum) * -1);
+    }
+
+    return output;
+    SQL
+
+    db.create_function "_dd__unscatter", sql,
+      :language => :plv8,
+      :args     => [['text[]', :input], [:int, :spin]],
+      :returns  => 'text[]',
+      :replace  => true,
+      :behavior => :immutable
+  end
 end
 
 Sequel::Database.register_extension :don_draper do |db|
   db.instance_eval do
-    @don_draper = DonDraper.new(self)
-
     def don_draper
-      @don_draper
+      @don_draper ||= DonDraper.new(self)
     end
   end
 end

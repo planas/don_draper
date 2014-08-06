@@ -3,18 +3,29 @@ class DonDraper
 
   def initialize(db)
     unless db.database_type == :postgres
-      raise ArgumentError, "Don Draper is only compatible with PostgreSQL, sorry =^("
+      raise ArgumentError, "Don Draper is only compatible with PostgreSQL"
     end
 
     @db = db
   end
 
-  def create_trigger(table, spin = 0, length = 10, prefix_length = 2, opts = {})
+  def create_trigger(table, spin = 0, length = 10, opts = {})
     trigger_name  = opts[:trigger_name]  || "pgt_dd_#{table}"
     function_name = opts[:function_name] || "pgt_dd_#{table}"
-    sequence_name = opts[:sequence_name] || table.to_s.foreign_key + "_seq"
+    prefix_length = opts[:prefix_length] || 2
+    source_type   = opts[:source_type]   || :sequence
 
-    column_name = db.quote_identifier(opts[:column_name] || 'id')
+    source = case source_type
+    when :sequence
+      sequence_name = opts[:sequence_name] || table.to_s.foreign_key + '_seq'
+      "nextval('#{sequence_name}')"
+    when :column
+      "NEW." + db.quote_identifier(opts[:source_column])
+    else
+      raise ArgumentError, "Invalid source #{source}"
+    end
+
+    target = db.quote_identifier(opts[:target_column] || 'id')
 
     # Max value for int is 2147483647, we can't guess
     # if the result will be under that threshold, so
@@ -30,12 +41,12 @@ class DonDraper
 
     DECLARE
       draperized_id text;
-      #{'random_prefix int;' if prefix_length > 0}
+      #{'prefix int;' if prefix_length > 0}
     BEGIN
-      draperized_id := draperize(nextval('#{sequence_name}')::text, #{spin}, #{length});
-      #{"random_prefix := floor(#{random_max} * random() + #{random_min});" if prefix_length > 0}
+      draperized_id := draperize(#{source}::text, #{spin}, #{length});
+      #{"prefix := floor(#{random_max} * random() + #{random_min});" if prefix_length > 0}
 
-      NEW.#{column_name} := #{prefix_length > 0 ? "(random_prefix::text || draperized_id)::#{column_type}" : "draperized_id::#{column_type}"};
+      NEW.#{target} := #{prefix_length > 0 ? "(prefix::text || draperized_id)::#{column_type}" : "draperized_id::#{column_type}"};
       RETURN NEW;
     END;
     SQL

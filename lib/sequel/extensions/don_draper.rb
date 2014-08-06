@@ -56,9 +56,7 @@ class DonDraper
   end
 
   def setup
-    if @setup_done
-      puts "\nWARNING: You are calling DonDrapper#setup more than once, and you shouldn't"
-    end
+    return if @setup_done
 
     create_draperize_function
     create_undraperize_function
